@@ -42,24 +42,29 @@ main:
 	move $t1, $zero #Initialize the offset counter for load_one (0)
 	move $t7, $zero #Initialize the offset counter for load_two (0)
 	
+	move $s6, $zero #Reserved column index.
+	move $s7, $zero #Reserved row index. 
+	
 load_one:
 	li $t2, 1024
 	sub  $t0, $t2, $t1
 	
-	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-#	li $v0, 1								
-#	move $a0, $t0
-#	syscall
-	
-#	li $v0, 4
-#	la $a0, new_line
-#	syscall
-	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-	
 	beqz $t0, load_two #switch jump back to load two after debugging
 	add $t3, $t0, $t2
-	sw $t3, matrix_one($s3)
-	#else continue loading matrix
+	add $t4, $s1, $t1
+	sw $t3, ($t4)   #EXTRA 12 digits is being added in here.
+	
+	#################################DEBUG#################################################################
+	lw $t3, matrix_one($t4)
+	li $v0, 1
+	move $a0, $t3
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#################################DEBUG#################################################################
+	
 	
 	#After storing value the pointer to the first element is updated by 4
 	add $t1, $t1, $s3
@@ -67,22 +72,13 @@ load_one:
 		
 load_two:
 	li $t2, 1024
-	sub  $t0, $t2, $t7
+	sub  $t0, $t2, $t1
 	
-	beqz $t0, print_input_one
+	beqz $t0, print_input_one #switch jump back to load two after debugging
 	add $t3, $t0, $t2
-	sw $t3, matrix_one($s3)
+	add $t4, $t4, $t1
+	sw $t3, ($t4)
 	#else continue loading matrix
-	
-	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-	li $v0, 1
-	move $a0, $t0
-	syscall
-	
-	li $v0, 4
-	la $a0, new_line
-	syscall
-	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
 	
 	#After storing value the pointer to the first element is updated by 4
 	add $t7, $t7, $s3
@@ -98,12 +94,58 @@ print_input_one:
 	la $a0, new_line
 	syscall
 	
-itr_one:la $s1, matrix_one #Grab starting address of matrix one
-	la $t2, max_offset
-	sub  $t0, $t2, $t1
-	beqz $t0, print_input_two
+	li $t0, 64 #mod operand for determining line breaks (16 units * 4 bytes)
 	
+	la $s1, matrix_one #Grab starting address of matrix one
+	move $s6, $zero #Row (Y) index that will be incremented every time a new line is printed
+	move $s7, $zero #Column (X) index that will incremented every time and reset when a new line is printed.
+	la $t1, max_offset #$t1 loaded with max offset
 	
+# Accesses will happen easiest if we utilize row-major order
+# Example: size_of_data_type * (num_total_columns * x_coord + y_coord) = offset_from_base 
+	
+itr_one: 
+	sub  $t2, $t1, $s1
+	beqz $t2, print_input_two #branch to print_input_two
+	
+	#calculate correct offset using the above formula
+	li $t3, 16 #loads num of columns into temp register
+	mult $t3, $s7
+	mfhi $t3
+	add $t3, $t3, $s6
+	sll $t3, $t3, 2 #Multiply by size of the data type (4 bytes)
+	add $s1, $s1, $t3
+	
+	#add generated offset to the base address
+	la $t4, matrix_one
+	add $t4, $t4, $s1
+	
+	#print out the data from the index.
+	lw $t3, ($t4)
+	
+	#if the row is now equal to 64 scaled, add a new line
+	div $s1, $t0
+	mfhi $t3
+	beqz $t3, print_new_line
+n_row:	j itr_one
+	
+
+	
+		
+			
+				
+					
+						
+							
+								
+									
+										
+											
+												
+													
+														
+															
+																	
 print_input_two:
 	#print out a label string
 	li $v0, 4
@@ -114,29 +156,31 @@ print_input_two:
 	la $a0, new_line
 	syscall
 	
-itr_two:la $s2, matrix_two #Grab starting address of matrix two
+	la $s2, matrix_two #Grab starting address of matrix two
+# Accesses will happen easiest if we utilize row-major order
+# Example: size_of_data_type * (num_total_columns * x_coord + y_coord) = offset_from_base 
+	
+itr_two:
 	la $t2, max_offset
 	sub  $t0, $t2, $t1
 	beqz $t0, conduct_operation
 	
-		
-random:
-	sw $a0, 0($s0)   
-	li $a1, 26
-	li $v0, 42   #random between 0 and 25	
 	
-	move $t0, $v0
-	#DEBUG THE RANDOMIZER
-	li $v0, 1								
-	move $a0, $t6
-	syscall
+	#else print out the data from the index.
 	
-	#DEBUG THE RANDOMIZER
+	
+	
+	
+	j itr_two
+
+print_new_line:
 	li $v0, 4
 	la $a0, new_line
 	syscall
 	
-	j load_one
+	addi $s6, $s6, 1
+	move $s7, $zero
+	j n_row
 		
 	
 conduct_operation:
