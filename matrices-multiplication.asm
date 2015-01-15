@@ -47,17 +47,16 @@ load_one:
 	sub  $t0, $t2, $t1
 	
 	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-	li $v0, 1								
-	move $a0, $t0
-	syscall
+#	li $v0, 1								
+#	move $a0, $t0
+#	syscall
 	
-	li $v0, 4
-	la $a0, new_line
-	syscall
+#	li $v0, 4
+#	la $a0, new_line
+#	syscall
 	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
 	
-	
-	beqz $t0, end #switch jump back to load two after debugging
+	beqz $t0, load_two #switch jump back to load two after debugging
 	add $t3, $t0, $t2
 	sw $t3, matrix_one($s3)
 	#else continue loading matrix
@@ -70,14 +69,14 @@ load_two:
 	li $t2, 1024
 	sub  $t0, $t2, $t7
 	
-	beqz $t0, load_two
+	beqz $t0, print_input_one
 	add $t3, $t0, $t2
 	sw $t3, matrix_one($s3)
 	#else continue loading matrix
 	
 	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-	li $v0, 4
-	la $a0, debug_two
+	li $v0, 1
+	move $a0, $t0
 	syscall
 	
 	li $v0, 4
@@ -87,7 +86,7 @@ load_two:
 	
 	#After storing value the pointer to the first element is updated by 4
 	add $t7, $t7, $s3
-	j end
+	j load_two
 	
 print_input_one:
 	#print out a label string
@@ -118,7 +117,26 @@ print_input_two:
 itr_two:la $s2, matrix_two #Grab starting address of matrix two
 	la $t2, max_offset
 	sub  $t0, $t2, $t1
-	beqz $t0, conduct_operation	
+	beqz $t0, conduct_operation
+	
+		
+random:
+	sw $a0, 0($s0)   
+	li $a1, 26
+	li $v0, 42   #random between 0 and 25	
+	
+	move $t0, $v0
+	#DEBUG THE RANDOMIZER
+	li $v0, 1								
+	move $a0, $t6
+	syscall
+	
+	#DEBUG THE RANDOMIZER
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	j load_one
 		
 	
 conduct_operation:
