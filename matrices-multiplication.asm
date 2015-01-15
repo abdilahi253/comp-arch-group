@@ -39,15 +39,16 @@ main:
 	syscall
 	
 	move $s4, $v0 #Save the user-generated randomized seed
-	move $t1, $zero #Initialize the offset counter
+	move $t1, $zero #Initialize the offset counter for load_one (0)
+	move $t7, $zero #Initialize the offset counter for load_two (0)
 	
 load_one:
 	li $t2, 1024
 	sub  $t0, $t2, $t1
 	
 	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-	li $v0, 4								
-	la $a0, debug_one
+	li $v0, 1								
+	move $a0, $t0
 	syscall
 	
 	li $v0, 4
@@ -56,28 +57,18 @@ load_one:
 	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
 	
 	
-	beqz $t0, load_two
+	beqz $t0, end #switch jump back to load two after debugging
 	add $t3, $t0, $t2
 	sw $t3, matrix_one($s3)
 	#else continue loading matrix
 	
-	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-	li $v0, 1								
-	la $a0, offset     # This section is not actually conducting any operations
-	syscall
-	
-	li $v0, 4
-	la $a0, new_line
-	syscall
-	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
-	
 	#After storing value the pointer to the first element is updated by 4
-	add $s1, $s1, $s3
+	add $t1, $t1, $s3
 	j load_one
 		
 load_two:
 	li $t2, 1024
-	sub  $t0, $t2, $t1
+	sub  $t0, $t2, $t7
 	
 	beqz $t0, load_two
 	add $t3, $t0, $t2
@@ -95,7 +86,7 @@ load_two:
 	#DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG #DEBUG 
 	
 	#After storing value the pointer to the first element is updated by 4
-	add $s2, $s2, $s3
+	add $t7, $t7, $s3
 	j end
 	
 print_input_one:
