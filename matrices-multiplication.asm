@@ -6,8 +6,11 @@ column_index:	.word 0
 offset:		.word 0
 max_offset:	.word 1024 #Used as a flag variable for iterative loops in the matrix
 prompt:		.asciiz "What seed would you like to give the matrix?:"
+base:		.asciiz "Base Address: "
+sum_address:	.asciiz "Generated Address: "
 m_label_one:	.asciiz "Matrix One"
 m_label_two:	.asciiz "Matrix Two"
+space:		.asciiz " "
 new_line: 	.asciiz "\n"
 
 debug_one:	.asciiz "In Load 1st Matrix::DEBUG"
@@ -52,10 +55,10 @@ load_one:
 	beqz $t0, load_two #switch jump back to load two after debugging
 	add $t3, $t0, $t2
 	add $t4, $s1, $t1
-	sw $t3, ($t4)   #EXTRA 12 digits is being added in here.
+	sw $t3, 0($t4)   #EXTRA 12 digits is being added in here.
 	
 	#################################DEBUG#################################################################
-	lw $t3, matrix_one($t4)
+	lw $t3, 0($t4)
 	li $v0, 1
 	move $a0, $t3
 	syscall
@@ -106,7 +109,7 @@ print_input_one:
 	
 itr_one: 
 	sub  $t2, $t1, $s1
-	beqz $t2, print_input_two #branch to print_input_two
+	beqz $t2, end #branch to print_input_two
 	
 	#calculate correct offset using the above formula
 	li $t3, 16 #loads num of columns into temp register
@@ -114,20 +117,62 @@ itr_one:
 	mfhi $t3
 	add $t3, $t3, $s6
 	sll $t3, $t3, 2 #Multiply by size of the data type (4 bytes)
-	add $s1, $s1, $t3
+	#add $s1, $s1, $t3
 	
 	#add generated offset to the base address
 	la $t4, matrix_one
-	add $t4, $t4, $s1
+	add $t4, $t4, $t3
+	
+	#################################DEBUG#################################################################
+	#print out a label string
+	#li $v0, 4
+	#la $a0, base
+	#syscall 
+	
+	#li $v0, 1
+	#move $a0, $s1
+	#syscall
+	
+	#li $v0, 4
+	#la $a0, new_line
+	#syscall
+	
+	#print out a label string
+	#li $v0, 4
+	#la $a0, sum_address
+	#syscall
+	
+	#li $v0, 1
+	#move $a0, $t4
+	#syscall
+	
+	#li $v0, 4
+	#la $a0, new_line
+	#syscall
+	#################################DEBUG#################################################################
 	
 	#print out the data from the index.
 	lw $t3, ($t4)
 	
-	#if the row is now equal to 64 scaled, add a new line
-	div $s1, $t0
+	#################################PRINT_ROUTINE#########################################################
+	li $v0, 1 
+	move $a0, $t3 
+	syscall #Print the value at the index to the screen
+	
+	li $v0, 4
+	la $a0, space
+	syscall #Print a space to the screen
+	
+	div $s1, $t0 
 	mfhi $t3
-	beqz $t3, print_new_line
-n_row:	j itr_one
+	bnez $t3, cont #If remainder is not zero continue past newline jump
+
+	li $v0, 4
+	la $a0, new_line 
+	syscall #New line printed every 16 entries
+	#################################PRINT_ROUTINE#########################################################
+cont:	addi $s1, $s1, 4
+	j itr_one
 	
 
 	
@@ -172,15 +217,6 @@ itr_two:
 	
 	
 	j itr_two
-
-print_new_line:
-	li $v0, 4
-	la $a0, new_line
-	syscall
-	
-	addi $s6, $s6, 1
-	move $s7, $zero
-	j n_row
 		
 	
 conduct_operation:
