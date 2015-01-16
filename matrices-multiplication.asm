@@ -1,8 +1,6 @@
 .data
 matrix_one:	.word 0 : 256 #1D Matrix, that we can traverse with row major manipulation
 matrix_two: 	.word 0 : 256 #1D Matrix, that we can traverse with row major manipulation
-row_index:	.word 0
-column_index:	.word 0
 offset:		.word 0
 max_offset:	.word 1024 #Used as a flag variable for iterative loops in the matrix
 prompt:		.asciiz "What seed would you like to give the matrix?:"
@@ -57,18 +55,6 @@ load_one:
 	add $t4, $s1, $t1
 	sw $t3, 0($t4)   #EXTRA 12 digits is being added in here.
 	
-	#################################DEBUG#################################################################
-	lw $t3, 0($t4)
-	li $v0, 1
-	move $a0, $t3
-	syscall
-	
-	li $v0, 4
-	la $a0, new_line
-	syscall
-	#################################DEBUG#################################################################
-	
-	
 	#After storing value the pointer to the first element is updated by 4
 	add $t1, $t1, $s3
 	j load_one
@@ -88,7 +74,7 @@ load_two:
 	j load_two
 	
 print_input_one:
-	#print out a label string
+	#################################PRINT_ROUTINE#########################################################
 	li $v0, 4
 	la $a0, m_label_one
 	syscall
@@ -96,6 +82,7 @@ print_input_one:
 	li $v0, 4
 	la $a0, new_line
 	syscall
+	#################################PRINT_ROUTINE#########################################################
 	
 	li $t0, 64 #mod operand for determining line breaks (16 units * 4 bytes)
 	
@@ -109,7 +96,7 @@ print_input_one:
 	
 itr_one: 
 	sub  $t2, $t1, $s1
-	beqz $t2, end #branch to print_input_two
+	beqz $t2, print_input_two #branch to print_input_two
 	
 	#calculate correct offset using the above formula
 	li $t3, 16 #loads num of columns into temp register
@@ -123,35 +110,7 @@ itr_one:
 	la $t4, matrix_one
 	add $t4, $t4, $t3
 	
-	#################################DEBUG#################################################################
-	#print out a label string
-	#li $v0, 4
-	#la $a0, base
-	#syscall 
-	
-	#li $v0, 1
-	#move $a0, $s1
-	#syscall
-	
-	#li $v0, 4
-	#la $a0, new_line
-	#syscall
-	
-	#print out a label string
-	#li $v0, 4
-	#la $a0, sum_address
-	#syscall
-	
-	#li $v0, 1
-	#move $a0, $t4
-	#syscall
-	
-	#li $v0, 4
-	#la $a0, new_line
-	#syscall
-	#################################DEBUG#################################################################
-	
-	#print out the data from the index.
+	#Load the data located at the memory address stored in $t4 and place it in $t3
 	lw $t3, ($t4)
 	
 	#################################PRINT_ROUTINE#########################################################
@@ -173,26 +132,10 @@ itr_one:
 	#################################PRINT_ROUTINE#########################################################
 cont:	addi $s1, $s1, 4
 	j itr_one
-	
 
-	
-		
-			
-				
-					
-						
-							
-								
-									
-										
-											
-												
-													
-														
-															
-																	
 print_input_two:
-	#print out a label string
+
+    #################################PRINT_ROUTINE#########################################################
 	li $v0, 4
 	la $a0, m_label_two
 	syscall
@@ -200,35 +143,61 @@ print_input_two:
 	li $v0, 4
 	la $a0, new_line
 	syscall
+	#################################PRINT_ROUTINE#########################################################
 	
-	la $s2, matrix_two #Grab starting address of matrix two
+	li $t0, 64 #mod operand for determining line breaks (16 units * 4 bytes)
+	
+	la $s2, matrix_one #Grab starting address of matrix two
+	move $s6, $zero #Row (Y) index that will be incremented every time a new line is printed
+	move $s7, $zero #Column (X) index that will incremented every time and reset when a new line is printed.
+	la $t1, max_offset #$t1 loaded with max offset
+	
 # Accesses will happen easiest if we utilize row-major order
 # Example: size_of_data_type * (num_total_columns * x_coord + y_coord) = offset_from_base 
-	
+
 itr_two:
-	la $t2, max_offset
-	sub  $t0, $t2, $t1
-	beqz $t0, conduct_operation
+	sub  $t2, $t1, $s2
+	beqz $t2, end #when offset is 0 branch to the computation.
 	
+	#calculate correct offset using the above formula
+	li $t3, 16 #loads num of columns into temp register
+	mult $t3, $s7
+	mfhi $t3
+	add $t3, $t3, $s6
+	sll $t3, $t3, 2 #Multiply by size of the data type (4 bytes)
+	#add $s2, $s2, $t3
 	
-	#else print out the data from the index.
+	#add generated offset to the base address
+	la $t4, matrix_one
+	add $t4, $t4, $t3
 	
+	#Load the data located at the memory address stored in $t4 and place it in $t3
+	lw $t3, ($t4)
 	
+	#################################PRINT_ROUTINE#########################################################
+	li $v0, 1 
+	move $a0, $t3 
+	syscall #Print the value at the index to the screen
 	
+	li $v0, 4
+	la $a0, space
+	syscall #Print a space to the screen
 	
+	div $s1, $t0 
+	mfhi $t3
+	bnez $t3, cont #If remainder is not zero continue past newline jump
+
+	li $v0, 4
+	la $a0, new_line 
+	syscall #New line printed every 16 entries
+	#################################PRINT_ROUTINE#########################################################
+cont:	addi $s2, $s2, 4
 	j itr_two
 		
 	
 conduct_operation:
 
-	
-iterate_one:
-	
-
-
-
-
-iterate_two:
+	#Multiplication to be conducted in here.
 
 
 
