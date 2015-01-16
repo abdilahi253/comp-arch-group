@@ -183,15 +183,15 @@ itr_two:
 	la $a0, space
 	syscall #Print a space to the screen
 	
-	div $s1, $t0 
+	div $s2, $t0 
 	mfhi $t3
-	bnez $t3, cont #If remainder is not zero continue past newline jump
+	bnez $t3, cont_2 #If remainder is not zero continue past newline jump
 
 	li $v0, 4
 	la $a0, new_line 
 	syscall #New line printed every 16 entries
 	#################################PRINT_ROUTINE#########################################################
-cont:	addi $s2, $s2, 4
+cont_2:	addi $s2, $s2, 4
 	j itr_two
 		
 	
