@@ -1,6 +1,8 @@
 .data
 matrix_one:	.word 0 : 256 #1D Matrix, that we can traverse with row major manipulation
 matrix_two: 	.word 0 : 256 #1D Matrix, that we can traverse with row major manipulation
+matrix_product:	.word 0 : 256 #1D Matrix to hold the product of the two matrices
+
 offset:		.word 0
 prompt:		.asciiz "What seed would you like to give the matrix?:"
 base:		.asciiz "Base Address: "
@@ -35,7 +37,7 @@ main:
 	syscall
 	
 	li $v0, 5 #Grab the randomized seed from the user
-	move $s4, $v0 #Save the user-generated randomized seed
+	move $s5, $v0 #Save the user-generated randomized seed
 	syscall
 	
 	li $v0, 4
@@ -61,7 +63,7 @@ load_one: #t7 temporarily holds the difference of the offset and the counter
 	
 	#else generate the next random integer and add it to the correct memory location
 	###########RANDOM_NUMBER_GENERATOR#########################################
-	move $a1, $s4
+	move $a1, $s5
 	li $v0, 42
 	syscall
 	move $t3, $v0
@@ -82,22 +84,26 @@ load_two: #t7 temporarily holds the difference of the offset and the counter
 	
 	#else generate the next random integer and add it to the correct memory location
 	###########RANDOM_NUMBER_GENERATOR#########################################
-	move $a1, $s4
+	move $a1, $s5
 	li $v0, 42
 	syscall
 	move $t3, $v0
 	###########RANDOM_NUMBER_GENERATOR#########################################
 	
-	add $t4, $s2, $t2
-	sw $t3, ($t4)
-	#else continue loading matrix
+	add $t4, $s2, $t2 #generates the correct offset at which to store the random number in $t3
+	sw $t3, ($t4)	#EXTRA 12 digits is being added in here.
 	
 	#After storing value the pointer to the first element is updated by 4
 	add $t2, $t2, $s3
 	j load_two
 	
 print_input_one:
+
 	#################################PRINT_ROUTINE#########################################################
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
 	li $v0, 4
 	la $a0, new_line
 	syscall
@@ -174,6 +180,10 @@ print_input_two:
 	syscall
 	
 	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $v0, 4
 	la $a0, m_label_two
 	syscall
 	
@@ -184,7 +194,7 @@ print_input_two:
 	
 	li $t0, 64 #mod operand for determining line breaks (16 units * 4 bytes)
 	
-	la $s2, matrix_one #Grab starting address of matrix two
+	la $s2, matrix_two #Grab starting address of matrix two
 	move $s6, $zero #Row (Y) index that will be incremented every time a new line is printed
 	move $s7, $zero #Column (X) index that will incremented every time and reset when a new line is printed.
 	
@@ -195,7 +205,7 @@ print_input_two:
 
 itr_two:
 	sub  $t2, $s4, $t5 #need to subtract index instead of counter
-	beqz $t2, end #branch to print_input_two ###END IF DEBUGGING
+	beqz $t2, conduct_operation #branch to print_input_two ###END IF DEBUGGING
 
 	# Else, check the modulus operation 
 	div $t5, $t0 
@@ -217,7 +227,7 @@ cont_2:	#calculate correct offset using the row major formula
 	sll $t3, $t3, 2 #Multiply by size of the data type (4 bytes)
 	
 	#add generated offset to the base address
-	la $t4, matrix_one
+	la $t4, matrix_two
 	add $t4, $t4, $t3
 	
 	#Load the data located at the memory address stored in $t4 and place it in $t3
@@ -241,7 +251,8 @@ cont_2:	#calculate correct offset using the row major formula
 	
 conduct_operation:
 
-	#Multiplication of the two matrices to be conducted in this section of the code.
+	la $t0, matrix_one
+	la $t1, matrix_two
 
 
 
