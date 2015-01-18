@@ -258,11 +258,12 @@ conduct_operation:
 
 	li $t1, 16	# number of cols
 	li $t0, 0 	# overall counter
-	li $t2, 0	# local counter
+	li $t2, 0	# local row counter
+	li $t5, 0	# local col counter
 	
 	move $t3, $zero	# use for matrix 1 value
 	move $t4, $zero # use for matrix 2 value
-	move $t5, $zero # for mult result
+	
 	
 	move $s3, $zero	# use for storing value to move to memory
 	
@@ -272,7 +273,7 @@ Beg:
 	addi	$t7, $t0, -16
 	beqz 	$t7, print_matrix_product
 	
-Local_Loop:
+Row_Loop:
 	#find matrix 1 value
 	mult     $t1, $t0       # mult overall count * # cols
         mflo     $t6            # move result to t6
@@ -280,29 +281,43 @@ Local_Loop:
         sll      $t6, $t6, 2    # shift for offset, save this for offset in product matrix
         add	 $t7, $t6, $s0
         lw	 $t3, ($t7)	# save matrix 1 value in t3
-        add	 $s4, $t6, $zero#save offset in s4
+        #add	 $s4, $t6, $zero#save offset in s4
         
         #find matrix 2 value
         mult	$t2, $t1	# mult # of cols * local counter
         mflo	$t6		# move result to t6
-        add	$t6, $t6, $t0	# result += overall counter
+        add	$t6, $t6, $t5	# result += col counter
         sll	$t6, $t6, 2
         add	$t7, $s1, $t6
         lw	$t4, ($t7)	# save matrix 2 value in t4
         
         mult	$t3, $t4	# multiply the two values
-        mflo	$t5		# grab mult result
-        add	$s3, $s3, $t5	# add new result to existing ongoing row/col mult
+        mflo	$t7		# grab mult result
+        add	$s3, $s3, $t7	# add new result to existing ongoing row/col mult
         
 	
 	addi	$t2, $t2, 1	# increment local counter
 	addi	$t7, $t2, -16	
-	bnez	$t7, Local_Loop	# for check to see if we are at end of mult sequence for one set of row/col
+	bnez	$t7, Row_Loop	# for check to see if we are at end of mult sequence for one set of row/col
 	
-	add	$t7, $s2, $s4
+	#else we are at end of mult seq. need to store result
+	#Locate index in product matrix
+	mult	$t0, $t1
+	mflo	$t6
+	add	$t6, $t6, $t5	# add col counter this time to find element in product matrix
+	sll	$t6, $t6, 2
+	
+	add	$t7, $s2, $t6
 	sw	$s3, ($t7)	# else : we are at end of mult seq, need to store result
 	move	$s3, $zero	# reset running total
 	move	$t2, $zero	# reset local counter
+	
+	addi	$t5, $t5, 1	# increment col counter
+	addi	$t7, $t5, -16
+	bnez	$t7, Row_Loop	# if we have not finished mult each col by the row in question
+	
+	move 	$t5, $zero	# else reset col counter for the move to next row of multiplication
+	
 	addi	$t0, $t0, 1	# increment overall counter (move on to next row/col pair)
 	j	Beg
 	
