@@ -440,7 +440,7 @@ inner_loop:
 inc_overall:
 
 	addi	$t0, $t0, 1	#increment overall counter
-	add	$t1, $zero, $zero #reset row counter
+	add	$t1, $t0, $zero #reset row counter, but shift to handle diagonal and avoid reswaps
 	j	inner_loop
 		
 			
