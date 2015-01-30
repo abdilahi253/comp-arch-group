@@ -54,7 +54,7 @@ main:
 	move $s6, $zero #Reserved column index.
 	move $s7, $zero #Reserved row index. 
 	
-	
+	#call for matrix 2 transpose found in print_input_2 method
 	
 load_one: #t7 temporarily holds the difference of the offset and the counter
 	sub  $t7, $s4, $t1
@@ -174,7 +174,10 @@ cont:	#calculate correct offset using the row major formula
 	j itr_one
 
 print_input_two:
-
+	
+	la	$a0, matrix_two	# Setting up parameters for transpose method
+	li	$a1, 16		# matrix size
+	jal 	transpose	# Comment this out for Row Major format
     	#################################PRINT_ROUTINE#########################################################
 	li $v0, 4
 	la $a0, new_line
@@ -399,13 +402,49 @@ cont_product:	#calculate correct offset using the row major formula
 	j itr_product
 	
 	
+	
 end:
 
 	li       $v0, 10        # system service 10 is exit
         syscall
 
 
-
+transpose:
+	#a0 = matrix base address, a1 = matrix size
+	add	$t0, $zero, $zero # overall counter
+	add	$t1, $zero, $zero #row iteration counter
 	
+inner_loop:
+	beq	$t0, $a1, return_transpose
+	beq	$t1, $a1, inc_overall
+	mult	$a1, $t0	# find row position
+	mfhi	$t2
+	add	$t2, $t2, $t1
+	sll	$t2, $t2, 2
+	add	$t2, $t2, $a0	# t2 holds address of where to put swapped int from t5
+	lw	$t4, 0($t2)	# store in temp variable for swap
+	
+	mult	$a1, $t1	# find col position
+	mfhi	$t3
+	add	$t3, $t3, $t0
+	sll	$t3, $t3, 2
+	add	$t3, $t3, $a0	# t3 holds address of where to put swapped int from t4
+	lw	$t5, 0($t3)	# temp variable for swap
+	
+	sw	$t4, 0($t3)	#perform swap
+	sw	$t5, 0($t2)
+	
+	addi	$t1, $t1, 1	#increment row counter
+	j	inner_loop
+	
+inc_overall:
+
+	addi	$t0, $t0, 1	#increment overall counter
+	add	$t1, $zero, $zero #reset row counter
+	j	inner_loop
 		
+			
+return_transpose:
+
+	jr 	$ra	#return
 				
