@@ -1,0 +1,426 @@
+.data
+matrix_one:	.word 0 : 256 #1D Matrix, that we can traverse with row major manipulation
+matrix_two: 	.word 0 : 256 #1D Matrix, that we can traverse with row major manipulation
+matrix_product:	.word 0 : 256 #1D Matrix to hold the product of the two matrices
+
+offset:		.word 0
+prompt:		.asciiz "What seed would you like to give the matrix?:"
+base:		.asciiz "Base Address: "
+sum_address:	.asciiz "Generated Address: "
+m_label_one:	.asciiz "Matrix One"
+m_label_two:	.asciiz "Matrix Two"
+m_label_prod:	.asciiz "Matrix Product"
+space:		.asciiz " "
+new_line: 	.asciiz "\n"
+
+debug_one:	.asciiz "In Load 1st Matrix::DEBUG"
+debug_two:	.asciiz "In Load 2nd Matrix::DEBUG"
+debug_offset:	.asciiz "Debugging the offset of the register: "
+debug_counter:	.asciiz "Counter is at: "
+debug_mod:	.asciiz "Remainder is "
+
+# Accesses will happen easiest if we utilize row-major order
+# Example: size_of_data_type * (num_total_columns * x_coord + y_coord) = offset_from_base
+# If we wanted to access the higher language equivalent of [3][4], with 16 columns and a data type of a 
+# .word (4 bytes) we would calculate offset_from_base with --> 4 * (16 * 3 + 4) = 64. 64 is the amount
+# by which you need to offset from base address in order to accurately store saved data of the matrix 
+# multiplication.  
+
+.text		
+main:
+
+	la $s1, matrix_one #Grab starting address of matrix one
+	la $s2, matrix_two #Grab starting address of matrix two
+	li $s3, 4 #Scale by which to traverse both matrices
+	
+	li $v0, 4
+	la $a0, prompt #Ask for the user generated randomized seed
+	syscall
+	
+	li $v0, 5 #Grab the randomized seed from the user
+	move $s5, $v0 #Save the user-generated randomized seed
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $s4, 1024 #Initialize the offset counter
+	
+	#initialize the temporary counter
+	move $t1, $zero #counter for 1st matrix
+	move $t2, $zero #counter for 2nd matrix
+	
+	move $s6, $zero #Reserved column index.
+	move $s7, $zero #Reserved row index. 
+	
+	#call for matrix 2 transpose found in print_input_2 method
+	
+load_one: #t7 temporarily holds the difference of the offset and the counter
+	sub  $t7, $s4, $t1
+	
+	#if $t7 == 0 branch to load_two
+	beqz $t7, load_two #switch jump back to load two after debugging
+	
+	#else generate the next random integer and add it to the correct memory location
+	###########RANDOM_NUMBER_GENERATOR#########################################
+	move $a1, $s5
+	li $v0, 42
+	syscall
+	move $t3, $v0
+	###########RANDOM_NUMBER_GENERATOR#########################################
+	
+	add $t4, $s1, $t1 #generates the correct offset at which to store the random number in $t3
+	sw $t3, 0($t4)   #EXTRA 12 digits is being added in here.
+	
+	#After storing value the pointer to the first element is updated by 4
+	add $t1, $t1, $s3
+	j load_one
+		
+load_two: #t7 temporarily holds the difference of the offset and the counter
+	sub  $t7, $s4, $t2
+	
+	#if $t7 == 0 branch to print_input_one
+	beqz $t7, print_input_one 
+	
+	#else generate the next random integer and add it to the correct memory location
+	###########RANDOM_NUMBER_GENERATOR#########################################
+	move $a1, $s5
+	li $v0, 42
+	syscall
+	move $t3, $v0
+	###########RANDOM_NUMBER_GENERATOR#########################################
+	
+	add $t4, $s2, $t2 #generates the correct offset at which to store the random number in $t3
+	sw $t3, ($t4)	#EXTRA 12 digits is being added in here.
+	
+	#After storing value the pointer to the first element is updated by 4
+	add $t2, $t2, $s3
+	j load_two
+	
+print_input_one:
+
+	#################################PRINT_ROUTINE#########################################################
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $v0, 4
+	la $a0, m_label_one
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#################################PRINT_ROUTINE#########################################################
+	
+	li $t0, 64 #mod operand for determining line breaks (16 units * 4 bytes)
+	
+	la $s1, matrix_one #Grab starting address of matrix one
+	move $s6, $zero #Row (Y) index that will be incremented every time a new line is printed
+	move $s7, $zero #Column (X) index that will incremented every time and reset when a new line is printed.
+	
+	li $t5, 0 #A temporary counter variable
+# Accesses will happen easiest if we utilize row-major order
+# Example: size_of_data_type * (num_total_columns * x_coord + y_coord) = offset_from_base 
+	
+itr_one: 
+	sub  $t2, $s4, $t5 #need to subtract index instead of counter
+	beqz $t2, print_input_two #branch to print_input_two ###END IF DEBUGGING
+
+	# Else, check the modulus operation 
+	div $t5, $t0 
+	mfhi $t3
+	
+	bnez $t3, cont #If remainder is not zero continue past newline jump
+	
+	###################NEW_LINE######################################################										
+	li $v0, 4 #New line printed every 16 entries					#
+	la $a0, new_line 								#
+	li $s7, 0 #Set Column Counter back to 0						#			
+	syscall 									#
+	###################NEW_LINE######################################################	
+cont:	#calculate correct offset using the row major formula
+	li $t3, 16 #loads num of columns into temp register
+	mult $t3, $s7
+	mfhi $t3
+	add $t3, $t3, $s6
+	sll $t3, $t3, 2 #Multiply by size of the data type (4 bytes)
+	
+	#add generated offset to the base address
+	la $t4, matrix_one
+	add $t4, $t4, $t3
+	
+	#Load the data located at the memory address stored in $t4 and place it in $t3
+	lw $t3, ($t4)
+	
+	#################################PRINT_ROUTINE#########################################################
+	li $v0, 1 
+	move $a0, $t3 
+	syscall #Print the value at the index to the screen
+	
+	li $v0, 4
+	la $a0, space
+	syscall #Print a space to the screen
+	
+	addi $s7, $s7, 1 #Increment the Column Counter by 1
+	addi $s6, $s6, 1 #Increment the Row counter
+	#################################PRINT_ROUTINE#########################################################
+	addi $t5, $t5, 4
+	j itr_one
+
+print_input_two:
+	
+	la	$a0, matrix_two	# Setting up parameters for transpose method
+	li	$a1, 16		# matrix size
+	jal 	transpose	# Comment this out for Row Major format
+    	#################################PRINT_ROUTINE#########################################################
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $v0, 4
+	la $a0, m_label_two
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#################################PRINT_ROUTINE#########################################################
+	
+	li $t0, 64 #mod operand for determining line breaks (16 units * 4 bytes)
+	
+	la $s2, matrix_two #Grab starting address of matrix two
+	move $s6, $zero #Row (Y) index that will be incremented every time a new line is printed
+	move $s7, $zero #Column (X) index that will incremented every time and reset when a new line is printed.
+	
+	li $t5, 0 #A temporary counter variable
+	
+# Accesses will happen easiest if we utilize row-major order
+# Example: size_of_data_type * (num_total_columns * x_coord + y_coord) = offset_from_base 
+
+itr_two:
+	sub  $t2, $s4, $t5 #need to subtract index instead of counter
+	beqz $t2, conduct_operation #branch to print_input_two ###END IF DEBUGGING
+
+	# Else, check the modulus operation 
+	div $t5, $t0 
+	mfhi $t3
+	
+	bnez $t3, cont_2 #If remainder is not zero continue past newline jump
+	
+	###################NEW_LINE######################################################										
+	li $v0, 4 #New line printed every 16 entries					#
+	la $a0, new_line 								#
+	li $s7, 0 #Set Column Counter back to 0						#	
+	syscall 									#
+	###################NEW_LINE######################################################	
+cont_2:	#calculate correct offset using the row major formula
+	li $t3, 16 #loads num of columns into temp register
+	mult $t3, $s7
+	mfhi $t3
+	add $t3, $t3, $s6
+	sll $t3, $t3, 2 #Multiply by size of the data type (4 bytes)
+	
+	#add generated offset to the base address
+	la $t4, matrix_two
+	add $t4, $t4, $t3
+	
+	#Load the data located at the memory address stored in $t4 and place it in $t3
+	lw $t3, ($t4)
+	
+	#################################PRINT_ROUTINE#########################################################
+	li $v0, 1 
+	move $a0, $t3 
+	syscall #Print the value at the index to the screen
+	
+	li $v0, 4
+	la $a0, space
+	syscall #Print a space to the screen
+	
+	addi $s7, $s7, 1 #Increment the Column Counter by 1
+	addi $s6, $s6, 1 #Increment the Row counter
+	#################################PRINT_ROUTINE#########################################################
+	addi $t5, $t5, 4
+	j itr_two
+		
+conduct_operation:	
+	la $s0, matrix_one
+	la $s1, matrix_two
+	la $s2, matrix_product
+	addi $t3, $zero, 16 #create upperbound check for counter 
+	#####################################ZERO OUT REGESITERS###############################################
+	move $t4, $zero	
+	move $t5, $zero
+	move $t6, $zero
+	move $t7, $zero
+	move $s3, $zero
+	
+	
+matrix_multiply:
+	add $t0, $s0, $t6	#add offset of base address for the current row of matrix 1
+	add $t1, $s1, $t7	#add offset of base address for the current row of matrix 2
+	
+	sll $t5, $t5, 2		#Shift left for word granularity of current index offset
+	add $t0, $t0, $t5	#add the offset to both matrices
+	add $t1, $t1, $t5
+	srl $t5, $t5, 2		#Shift right to get the correct index count again
+	addi $t5, $t5, 1	#Increment index count by 1
+	
+	lw $t0, 0($t0)		#Load the values to multiply
+	lw $t1, 0($t1)
+	
+	mult $t0, $t1		#Multiply the values
+	mflo $t8
+	add $t9, $t9, $t8	#Add the current value to the ongoing sum
+	
+	bne $t5, $t3, matrix_multiply 	#if the counter has not finished the current row keep going
+	move $t5, $zero
+	addi $s3, $s3, 1	#increment counter for current row of matrix 2
+	
+	mult $t3, $s3		#calculate correct offset from base address for matrix 2
+	mflo $t7
+	
+	sw $t9, 0($s2)		#Store the sum into matrix 3
+	move $t9, $zero
+	addi $s2, $s2, 4	#increment address of matrix 3 to the next index.
+	beq $s3 $t3, add_column	#Branch if current row for matrix 1 has finished multiplying all of matrix 2
+	j matrix_multiply
+	
+add_column:
+	move $s3, $zero		
+	addi $t4, $t4, 1	#increment row counter of matrix 1
+	mult $t4, $t3		#calculate offset from base address to current row of matrix 1
+	mflo $t6		
+	bne $t4, $t3, matrix_multiply	#Branch if all the rows for matrix 1 have been multiplied
+		
+print_matrix_product:
+
+    	#################################PRINT_ROUTINE#########################################################
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	
+	li $v0, 4
+	la $a0, m_label_prod
+	syscall
+	
+	li $v0, 4
+	la $a0, new_line
+	syscall
+	#################################PRINT_ROUTINE#########################################################
+	
+	li $t0, 64 #mod operand for determining line breaks (16 units * 4 bytes)
+	
+	la $s2, matrix_product #Grab starting address of matrix two
+	move $s6, $zero #Row (Y) index that will be incremented every time a new line is printed
+	move $s7, $zero #Column (X) index that will incremented every time and reset when a new line is printed.
+	
+	li $t5, 0 #A temporary counter variable
+	
+# Accesses will happen easiest if we utilize row-major order
+# Example: size_of_data_type * (num_total_columns * x_coord + y_coord) = offset_from_base 
+
+itr_product:
+	sub  $t2, $s4, $t5 #need to subtract index instead of counter
+	beqz $t2, end #branch to end ###END IF DEBUGGING
+
+	# Else, check the modulus operation 
+	div $t5, $t0 
+	mfhi $t3
+	
+	bnez $t3, cont_product #If remainder is not zero continue past newline jump
+	
+	###################NEW_LINE######################################################										
+	li $v0, 4 #New line printed every 16 entries					#
+	la $a0, new_line 								#
+	li $s7, 0 #Set Column Counter back to 0						#	
+	syscall 									#
+	###################NEW_LINE######################################################	
+cont_product:	#calculate correct offset using the row major formula
+	li $t3, 16 #loads num of columns into temp register
+	mult $t3, $s7
+	mfhi $t3
+	add $t3, $t3, $s6
+	sll $t3, $t3, 2 #Multiply by size of the data type (4 bytes)
+	
+	#add generated offset to the base address
+	la $t4, matrix_product
+	add $t4, $t4, $t3
+	
+	#Load the data located at the memory address stored in $t4 and place it in $t3
+	lw $t3, ($t4)
+	
+	#################################PRINT_ROUTINE#########################################################
+	li $v0, 1 
+	move $a0, $t3 
+	syscall #Print the value at the index to the screen
+	
+	li $v0, 4
+	la $a0, space
+	syscall #Print a space to the screen
+	
+	addi $s7, $s7, 1 #Increment the Column Counter by 1
+	addi $s6, $s6, 1 #Increment the Row counter
+	#################################PRINT_ROUTINE#########################################################
+	addi $t5, $t5, 4
+	j itr_product
+	
+	
+	
+end:
+
+	li       $v0, 10        # system service 10 is exit
+        syscall
+
+
+transpose:
+	#a0 = matrix base address, a1 = matrix size
+	add	$t0, $zero, $zero # overall counter
+	add	$t1, $zero, $zero #row iteration counter
+	
+inner_loop:
+	beq	$t0, $a1, return_transpose
+	beq	$t1, $a1, inc_overall
+	mult	$a1, $t0	# find row position
+	mfhi	$t2
+	add	$t2, $t2, $t1
+	sll	$t2, $t2, 2
+	add	$t2, $t2, $a0	# t2 holds address of where to put swapped int from t5
+	lw	$t4, 0($t2)	# store in temp variable for swap
+	
+	mult	$a1, $t1	# find col position
+	mfhi	$t3
+	add	$t3, $t3, $t0
+	sll	$t3, $t3, 2
+	add	$t3, $t3, $a0	# t3 holds address of where to put swapped int from t4
+	lw	$t5, 0($t3)	# temp variable for swap
+	
+	sw	$t4, 0($t3)	#perform swap
+	sw	$t5, 0($t2)
+	
+	addi	$t1, $t1, 1	#increment row counter
+	j	inner_loop
+	
+inc_overall:
+
+	addi	$t0, $t0, 1	#increment overall counter
+	add	$t1, $t0, $zero #reset row counter, but shift to handle diagonal and avoid reswaps
+	j	inner_loop
+		
+			
+return_transpose:
+
+	jr 	$ra	#return
